@@ -1,0 +1,9 @@
+/tacitus
+*.tct
+
+# Go build/test artifacts
+*.exe
+*.test
+*.out
+/bin/
+/dist/

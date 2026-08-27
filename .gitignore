@@ -1,6 +1,13 @@
 /tacitus
 *.tct
 
+# Key material / secrets — never commit these, even test ones
+*.key
+*.asc
+*.gpg
+secrets/
+keys/
+
 # Go build/test artifacts
 *.exe
 *.test

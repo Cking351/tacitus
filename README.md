@@ -36,6 +36,17 @@ tacitus lock <file> --to <recipient>   # encrypt for a recipient's pubkey
 - Encrypted extension: `.tct`
 - Go module path: TBD — `github.com/<you>/tacitus`
 
+## Dev loop
+
+```
+go build ./...                        # compile everything
+go run ./cmd/tacitus <command>         # e.g. go run ./cmd/tacitus lock foo.txt
+go test ./...                         # run tests
+```
+
+See `PLAN.md` for rationale/decisions and `TODO.md` for the current
+milestone checklist.
+
 ## Open questions / next steps
 
 - [ ] Confirm domain availability if we want one

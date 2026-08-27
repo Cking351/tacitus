@@ -1,19 +1,43 @@
 // Package crypto wraps github.com/ProtonMail/go-crypto/openpgp for tacitus.
 package crypto
 
+
 import (
 	"errors"
 	"io"
+	"github.com/ProtonMail/go-crypto/openpgp"
 )
 
-// EncryptSymmetric encrypts r into w using passphrase-based symmetric
-// encryption. See PLAN.md milestone 1.
+
 func EncryptSymmetric(r io.Reader, w io.Writer, passphrase string) error {
-	return errors.New("crypto: EncryptSymmetric not yet implemented")
+	plaintextWriter, err := openpgp.SymmetricallyEncrypt(w, []byte(passphrase), nil, nil)
+	if err != nil {
+		return err
+	}
+	defer plaintextWriter.Close()
+	_, err = io.Copy(plaintextWriter, r)
+	return err
 }
 
-// DecryptSymmetric decrypts r into w using passphrase-based symmetric
-// decryption. See PLAN.md milestone 1.
 func DecryptSymmetric(r io.Reader, w io.Writer, passphrase string) error {
-	return errors.New("crypto: DecryptSymmetric not yet implemented")
+	tried := false
+
+	prompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
+		if tried {
+			// Second call
+			return nil, errors.New("crypto: incorrect passphrase")
+		}
+		tried = true
+		return []byte(passphrase), nil
+	}
+
+	
+	md, err := openpgp.ReadMessage(r, nil, prompt, nil)
+	if err != nil {
+		return err
+	}
+
+
+	_, err = io.Copy(w, md.UnverifiedBody)
+	return err
 }

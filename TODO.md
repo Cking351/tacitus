@@ -17,7 +17,7 @@ trustworthy, not just that round-trip works once.
 
 ## Milestone 1 — Core crypto (symmetric)
 
-- [ ] **Implement `EncryptSymmetric`.**
+- [x] **Implement `EncryptSymmetric`.**
   Use `openpgp.SymmetricallyEncrypt(w io.Writer, passphrase []byte, hints *openpgp.FileHints, config *packet.Config) (io.WriteCloser, error)`.
   It hands back a `WriteCloser` — you write your **plaintext** into that, and
   ciphertext streams out to `w` as you go. Run `go doc
@@ -27,7 +27,7 @@ trustworthy, not just that round-trip works once.
   plaintext, or the final block never gets flushed and the output is
   truncated/corrupt. `defer` it carefully — check the `Close()` error too,
   don't just defer-and-ignore.
-- [ ] **Implement `DecryptSymmetric`.**
+- [x] **Implement `DecryptSymmetric`.**
   Use `openpgp.ReadMessage(r io.Reader, keyring openpgp.KeyRing, prompt openpgp.PromptFunction, config *packet.Config) (*openpgp.MessageDetails, error)`.
   For symmetric-only decryption, `keyring` can be `nil`. `prompt` is a
   callback go-crypto invokes to *ask you* for the passphrase — its signature
@@ -36,20 +36,20 @@ trustworthy, not just that round-trip works once.
   of `md.UnverifiedBody` (an `io.Reader`) — despite the name, this is normal
   for symmetric messages; the "unverified" part refers to signature
   verification, which doesn't apply here.
-- [ ] **Round-trip test.** Encrypt a small buffer, decrypt it, assert the
+- [x] **Round-trip test.** Encrypt a small buffer, decrypt it, assert the
   output equals the input byte-for-byte. Use `bytes.Buffer` for in-memory
   streams — no need to touch the filesystem for this test.
-- [ ] **Wrong-passphrase test.** Encrypt with one passphrase, try to decrypt
+- [x] **Wrong-passphrase test.** Encrypt with one passphrase, try to decrypt
   with a different one, assert you get an error. This is the test that
   actually proves the passphrase is doing something — skipping it is the
   most common way to ship crypto code that silently doesn't protect anything.
 
 ## Milestone 2 — `lock` / `unlock` commands
 
-- [ ] **`lock`**: prompt for a passphrase (plain `fmt.Scanln` is fine for
+- [x] **`lock`**: prompt for a passphrase (plain `fmt.Scanln` is fine for
   now — no-echo terminal input is milestone 4, don't block on it here), open
   the source file, create `<file>.tct`, call `EncryptSymmetric`, close both.
-- [ ] **`unlock`**: same shape in reverse. Restore the original filename by
+- [x] **`unlock`**: same shape in reverse. Restore the original filename by
   stripping `.tct`, or honor `--output` if given.
 - [ ] **`--delete` flag**: only remove the original *after* the encrypted
   file has been fully written and closed without error. Sequence matters —

@@ -18,21 +18,32 @@ var ErrCorruptFile = errors.New("file is corrupted or not a valid tacitus file")
 
 func EncryptSymmetric(r io.Reader, w io.Writer, passphrase string, useArmor bool) error {
 	out := w
+	var armorWriter io.WriteCloser
 	if useArmor {
-		armorWriter, err := armor.Encode(w, "PGP MESSAGE", nil)
+		var err error
+		armorWriter, err = armor.Encode(w, "PGP MESSAGE", nil)
 		if err != nil {
 			return err
 		}
-		defer armorWriter.Close()
 		out = armorWriter
 	}
 	plaintextWriter, err := openpgp.SymmetricallyEncrypt(out, []byte(passphrase), nil, nil)
 	if err != nil {
 		return err
 	}
-	defer plaintextWriter.Close()
-	_, err = io.Copy(plaintextWriter, r)
-	return err
+	if _, err := io.Copy(plaintextWriter, r); err != nil {
+		plaintextWriter.Close()
+		return err
+	}
+	// Close, don't defer: these writers flush the final packets, and a dropped
+	// close error means a silently truncated ciphertext.
+	if err := plaintextWriter.Close(); err != nil {
+		return err
+	}
+	if armorWriter != nil {
+		return armorWriter.Close()
+	}
+	return nil
 }
 
 func DecryptSymmetric(r io.Reader, w io.Writer, passphrase string) error {

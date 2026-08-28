@@ -1,6 +1,7 @@
 package cli
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"strings"
@@ -12,9 +13,10 @@ import (
 )
 
 func unlockCmd() *cobra.Command {
-	var deleteOriginal bool;
-	var outputPath string;
-	var passphrase string;
+	var deleteOriginal bool
+	var outputPath string
+	var passphrase string
+	var force bool
 	cmd := &cobra.Command{
 		Use:   "unlock <file>",
 		Short: "Decrypt a file",
@@ -28,18 +30,15 @@ func unlockCmd() *cobra.Command {
 					outPath = inputPath + ".decrypted"
 				}
 			}
+			if outPath == inputPath {
+				return errors.New("output path must differ from the input file")
+			}
 
-			inFile, err := os.Open(inputPath)
+			inFile, err := openInput(inputPath)
 			if err != nil {
-				return fmt.Errorf("opening %s: %w", inputPath, err)
+				return err
 			}
 			defer inFile.Close()
-
-			outFile, err := os.Create(outPath)
-			if err != nil {
-				return fmt.Errorf("creating %s: %w", outPath, err)
-			}
-			defer outFile.Close()
 
 			if passphrase == "" {
 				passphrase, err = helper.ReadPassphrase("Passphrase: ")
@@ -48,13 +47,25 @@ func unlockCmd() *cobra.Command {
 				}
 			}
 
+			outFile, existed, err := createOutput(outPath, force)
+			if err != nil {
+				return err
+			}
+			defer outFile.Close()
+
 			if err := crypto.DecryptSymmetric(inFile, outFile, passphrase); err != nil {
+				cleanupOutput(outFile, outPath, existed)
 				return fmt.Errorf("decrypting: %w", err)
+			}
+			if err := outFile.Close(); err != nil {
+				cleanupOutput(outFile, outPath, existed)
+				return fmt.Errorf("writing %s: %w", outPath, err)
 			}
 
 			fmt.Printf("Wrote %s\n", outPath)
 
 			if deleteOriginal {
+				inFile.Close()
 				if err := os.Remove(inputPath); err != nil {
 					return fmt.Errorf("remove %s: %w", inputPath, err)
 				}
@@ -67,6 +78,7 @@ func unlockCmd() *cobra.Command {
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "output file path (default: strip .tct suffix)")
 	cmd.Flags().BoolVarP(&deleteOriginal, "delete", "d", false, "delete the encrypted file after successful decryption")
 	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for decryption (THIS IS INSECURE)")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite the output file if it already exists")
 
 	return cmd
 }

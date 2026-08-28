@@ -17,12 +17,9 @@ Wrote secrets.txt
 
 ## Features
 
-- **Simple** — two commands, `lock` and `unlock`. No key management to set up.
-- **Standard format** — output is a normal OpenPGP symmetrically-encrypted
+- **Simple**: two commands, `lock` and `unlock`. No key management to set up.
+- **Standard format**: output is a normal OpenPGP symmetrically-encrypted
   message, optionally ASCII-armored, so it's readable by other OpenPGP tools.
-- **Safe by default** — passphrases are prompted for and hidden, never echoed
-  or left in your shell history; `lock` asks you to confirm the passphrase
-  before it writes anything.
 
 ## Installation
 

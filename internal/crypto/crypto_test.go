@@ -5,14 +5,12 @@ import (
 	"testing"
 )
 
-// See TODO.md milestone 1.
-
 func TestEncryptDecryptRoundTrip(t *testing.T) {
 	plaintext := []byte("hello, tacitus")
 	passphrase := "correct horse battery staple"
 
 	var ciphertext bytes.Buffer
-	if err := EncryptSymmetric(bytes.NewReader(plaintext), &ciphertext, passphrase); err != nil {
+	if err := EncryptSymmetric(bytes.NewReader(plaintext), &ciphertext, passphrase, false); err != nil {
 		t.Fatalf("EncryptSymmetric: %v", err)
 	}
 
@@ -30,7 +28,7 @@ func TestDecryptWrongPassphraseFails(t *testing.T) {
 	plaintext := []byte("hello, tacitus")
 
 	var ciphertext bytes.Buffer
-	if err := EncryptSymmetric(bytes.NewReader(plaintext), &ciphertext, "right passphrase"); err != nil {
+	if err := EncryptSymmetric(bytes.NewReader(plaintext), &ciphertext, "right passphrase", false); err != nil {
 		t.Fatalf("EncryptSymmetric: %v", err)
 	}
 

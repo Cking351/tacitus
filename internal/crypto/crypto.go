@@ -3,14 +3,30 @@ package crypto
 
 
 import (
+	"bufio"
+	"bytes"
 	"errors"
 	"io"
+
 	"github.com/ProtonMail/go-crypto/openpgp"
+	"github.com/ProtonMail/go-crypto/openpgp/armor"
+	pgperrors "github.com/ProtonMail/go-crypto/openpgp/errors"
 )
 
+var ErrCorruptFile = errors.New("file is corrupted or not a valid tacitus file")
 
-func EncryptSymmetric(r io.Reader, w io.Writer, passphrase string) error {
-	plaintextWriter, err := openpgp.SymmetricallyEncrypt(w, []byte(passphrase), nil, nil)
+
+func EncryptSymmetric(r io.Reader, w io.Writer, passphrase string, useArmor bool) error {
+	out := w
+	if useArmor {
+		armorWriter, err := armor.Encode(w, "PGP MESSAGE", nil)
+		if err != nil {
+			return err
+		}
+		defer armorWriter.Close()
+		out = armorWriter
+	}
+	plaintextWriter, err := openpgp.SymmetricallyEncrypt(out, []byte(passphrase), nil, nil)
 	if err != nil {
 		return err
 	}
@@ -25,19 +41,40 @@ func DecryptSymmetric(r io.Reader, w io.Writer, passphrase string) error {
 	prompt := func(keys []openpgp.Key, symmetric bool) ([]byte, error) {
 		if tried {
 			// Second call
-			return nil, errors.New("crypto: incorrect passphrase")
+			return nil, errors.New("incorrect passphrase")
 		}
 		tried = true
 		return []byte(passphrase), nil
 	}
 
+	pgpOpening := "-----BEGIN"
+	br := bufio.NewReader(r)
+	peek, _ := br.Peek(len(pgpOpening))
+
+	body := io.Reader(br)
+	if bytes.HasPrefix(peek, []byte(pgpOpening)) {
+		block, err := armor.Decode(br)
+		if err != nil {
+			return translateError(err)
+		}
+		body = block.Body
+	}
 	
-	md, err := openpgp.ReadMessage(r, nil, prompt, nil)
+	md, err := openpgp.ReadMessage(body, nil, prompt, nil)
 	if err != nil {
-		return err
+		return translateError(err)
 	}
 
-
 	_, err = io.Copy(w, md.UnverifiedBody)
+	return translateError(err)
+}
+
+// Translate so we don't expose raw crypto returns
+func translateError(err error) error {
+	var sigErr pgperrors.SignatureError
+	var structErr pgperrors.StructuralError
+	if errors.As(err, &sigErr) || errors.As(err, &structErr) {
+		return ErrCorruptFile
+	}
 	return err
 }

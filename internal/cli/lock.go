@@ -1,19 +1,21 @@
 package cli
 
 import (
-	"bufio"
+	"errors"
 	"fmt"
 	"os"
-	"strings"
 
 	"github.com/spf13/cobra"
 
 	"github.com/Cking351/tacitus/internal/crypto"
+	"github.com/Cking351/tacitus/internal/helper"
 )
 
 func lockCmd() *cobra.Command {
 	var deleteOriginal bool;
 	var outputPath  string;
+	var passphrase string;
+	var useArmor bool;
 	cmd := &cobra.Command{
 		Use:   "lock <file>",
 		Short: "Encrypt a file",
@@ -37,12 +39,22 @@ func lockCmd() *cobra.Command {
 			}
 			defer outFile.Close()
 
-			passphrase, err := readPassphrase("Passphrase: ")
-			if err != nil {
-				return err
+			if passphrase == "" {
+				passphrase, err = helper.ReadPassphrase("Passphrase: ")
+				if err != nil {
+					return err
+				}
+				confirmed, err := helper.ReadPassphrase("Confirm Passphrase: ")
+				if err != nil {
+					return err
+				}
+				if passphrase != confirmed {
+					os.Remove(outPath)
+					return errors.New("passphrase does not match")
+				}
 			}
 
-			if err := crypto.EncryptSymmetric(inFile, outFile, passphrase); err != nil {
+			if err := crypto.EncryptSymmetric(inFile, outFile, passphrase, useArmor); err != nil {
 				return fmt.Errorf("encrypting: %w", err)
 			}
 
@@ -58,21 +70,10 @@ func lockCmd() *cobra.Command {
 		},
 	}
 
-	// TODO: --to <recipient>, --armor flags (milestones 2-4)
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "output file path (default: <file>.tct)")
 	cmd.Flags().BoolVarP(&deleteOriginal, "delete", "d", false, "delete the original file after successful encryption")
+	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for encryption (THIS IS INSECURE)")
+	cmd.Flags().BoolVarP(&useArmor, "armor", "a", false, "Use PGP armor")
 
 	return cmd
-}
-
-// readPassphrase prints prompt, reads a line from stdin, and trims the
-// trailing newline. Plain text for now — no-echo terminal input is a
-// milestone 4 upgrade.
-func readPassphrase(prompt string) (string, error) {
-	fmt.Print(prompt)
-	line, err := bufio.NewReader(os.Stdin).ReadString('\n')
-	if err != nil {
-		return "", fmt.Errorf("reading passphrase: %w", err)
-	}
-	return strings.TrimSpace(line), nil
 }

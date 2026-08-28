@@ -10,14 +10,14 @@ func Execute() error {
 
 func rootCmd() *cobra.Command {
 	root := &cobra.Command{
-		Use:   "tacitus",
-		Short: "Encrypt and decrypt files from the command line",
+		Use:           "tacitus",
+		Short:         "Encrypt and decrypt files from the command line",
+		SilenceUsage:  true,
+		SilenceErrors: true,
 	}
 
 	root.AddCommand(lockCmd())
 	root.AddCommand(unlockCmd())
-	root.AddCommand(keygenCmd())
-	root.AddCommand(keysCmd())
 
 	return root
 }

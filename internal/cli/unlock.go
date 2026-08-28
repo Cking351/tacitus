@@ -8,11 +8,13 @@ import (
 	"github.com/spf13/cobra"
 
 	"github.com/Cking351/tacitus/internal/crypto"
+	"github.com/Cking351/tacitus/internal/helper"
 )
 
 func unlockCmd() *cobra.Command {
 	var deleteOriginal bool;
 	var outputPath string;
+	var passphrase string;
 	cmd := &cobra.Command{
 		Use:   "unlock <file>",
 		Short: "Decrypt a file",
@@ -39,9 +41,11 @@ func unlockCmd() *cobra.Command {
 			}
 			defer outFile.Close()
 
-			passphrase, err := readPassphrase("Passphrase: ")
-			if err != nil {
-				return err
+			if passphrase == "" {
+				passphrase, err = helper.ReadPassphrase("Passphrase: ")
+				if err != nil {
+					return err
+				}
 			}
 
 			if err := crypto.DecryptSymmetric(inFile, outFile, passphrase); err != nil {
@@ -62,6 +66,7 @@ func unlockCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "output file path (default: strip .tct suffix)")
 	cmd.Flags().BoolVarP(&deleteOriginal, "delete", "d", false, "delete the encrypted file after successful decryption")
+	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for decryption (THIS IS INSECURE)")
 
 	return cmd
 }

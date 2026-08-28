@@ -1,6 +1,8 @@
 /tacitus
 /cmd/tacitus/tacitus
 *.tct
+*.decrypted
+*.txt
 
 # Key material / secrets — never commit these, even test ones
 *.key

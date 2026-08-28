@@ -1,55 +1,95 @@
-# tacitus (dev notes)
+# tacitus
 
-Internal notes only — not a public-facing README yet.
-
-## What this is
-
-A Go CLI for encrypting/decrypting files, built on ProtonMail's OpenPGP fork
-(`github.com/ProtonMail/go-crypto`, the engine behind `gopenpgp`).
-
-## Naming
-
-- Landed on `tacitus` after ruling out `ion` (collides with `lfaoro/ion` and
-  SST's "Ion" deploy engine), `ironvail`/`ironward` (iron-* felt crowded —
-  IronKey, IronClad, IronCore Labs all taken; `ironward.com` is an active
-  Croatian game studio), and anything Proton-branded (avoid implying an
-  official Proton product).
-- `tacitus` checked clean: no competing security/crypto tool, no npm
-  collision, only an unrelated bioinformatics GitHub repo (`alaimos/tacitus`).
-  Domain availability (`.com`/`.dev`/`.sh`) still unverified — check a
-  registrar directly before announcing publicly.
-- Roman historian Tacitus was known for terse, guarded prose — fits an
-  encryption tool. Root of "tacit."
-
-## Planned CLI shape
+Encrypt and decrypt files from the command line, with a passphrase. Built on
+[OpenPGP](https://www.openpgp.org/) via ProtonMail's `go-crypto`, so the file
+format is standard and your encrypted files are never tied to this tool.
 
 ```
-tacitus lock <file>                    # encrypt -> file.tct
-tacitus unlock <file.tct>              # decrypt back to original
-tacitus keygen                         # generate a new keypair
-tacitus keys list
-tacitus keys import <path>
-tacitus lock <file> --to <recipient>   # encrypt for a recipient's pubkey
+$ tacitus lock secrets.txt
+Passphrase:
+Confirm Passphrase:
+Wrote secrets.txt.tct
+
+$ tacitus unlock secrets.txt.tct
+Passphrase:
+Wrote secrets.txt
 ```
 
-- Verbs: `lock` / `unlock` (not `encrypt`/`decrypt`)
-- Encrypted extension: `.tct`
-- Go module path: TBD — `github.com/<you>/tacitus`
+## Features
 
-## Dev loop
+- **Simple** — two commands, `lock` and `unlock`. No key management to set up.
+- **Standard format** — output is a normal OpenPGP symmetrically-encrypted
+  message, optionally ASCII-armored, so it's readable by other OpenPGP tools.
+- **Safe by default** — passphrases are prompted for and hidden, never echoed
+  or left in your shell history; `lock` asks you to confirm the passphrase
+  before it writes anything.
+
+## Installation
+
+### Prerequisites
+
+- [Go](https://go.dev/) 1.25 or later
+
+### Build from source
 
 ```
-go build ./...                        # compile everything
-go run ./cmd/tacitus <command>         # e.g. go run ./cmd/tacitus lock foo.txt
-go test ./...                         # run tests
+git clone https://github.com/Cking351/tacitus.git
+cd tacitus
+go build -o tacitus ./cmd/tacitus
 ```
 
-See `PLAN.md` for rationale/decisions and `TODO.md` for the current
-milestone checklist.
+This puts a `tacitus` binary in the current directory. Move it onto your
+`$PATH` (e.g. `mv tacitus /usr/local/bin/`) to run it from anywhere.
 
-## Open questions / next steps
+## Usage
 
-- [ ] Confirm domain availability if we want one
-- [ ] `go mod init`, pick CLI framework (cobra vs urfave/cli)
-- [ ] Wire up ProtonMail/go-crypto for actual lock/unlock
-- [ ] Decide key storage location/format (keyring dir, passphrase-protected?)
+### `lock` — encrypt a file
+
+```
+tacitus lock <file> [flags]
+```
+
+| Flag | Effect |
+|---|---|
+| `-o, --output <path>` | Output path. Defaults to `<file>.tct`. |
+| `-a, --armor` | ASCII-armor the output (base64 text, ~33% larger). Use this when the file needs to survive being pasted into an email, chat, or other text-only channel. |
+| `-d, --delete` | Delete the original file once encryption succeeds. |
+| `-p, --password <pw>` | Supply the passphrase directly. **Avoid this** — it can be recorded in your shell history and process list. Omit it and you'll be prompted instead. |
+
+Without `-p`, `lock` prompts for the passphrase twice and refuses to proceed
+if the two don't match.
+
+### `unlock` — decrypt a file
+
+```
+tacitus unlock <file> [flags]
+```
+
+| Flag | Effect |
+|---|---|
+| `-o, --output <path>` | Output path. Defaults to `<file>` with the `.tct` suffix stripped, or `<file>.decrypted` if there was no `.tct` suffix. |
+| `-d, --delete` | Delete the encrypted file once decryption succeeds. |
+| `-p, --password <pw>` | Supply the passphrase directly. Same caveat as above — prefer the interactive prompt. |
+
+Armored (`-a`/`--armor`) input from `lock` is detected automatically; you
+don't need to pass any flag for it on `unlock`.
+
+## Security notes
+
+- Encryption is OpenPGP symmetric (password-based) encryption, produced by
+  ProtonMail's `go-crypto`. The output is a standard OpenPGP message, with or
+  without ASCII armor, decryptable by any compliant OpenPGP implementation
+  that knows the passphrase.
+- Passphrase strength is entirely up to you — tacitus does not enforce a
+  minimum length or complexity. Anyone who can guess or brute-force your
+  passphrase can decrypt the file.
+- Prefer the interactive prompt over `--password`/`-p`. A password passed on
+  the command line is visible to anyone who can list processes on the
+  machine, and is likely to end up in your shell's history file.
+- `--delete` removes the original file with a normal filesystem delete, not
+  a secure wipe. The data may still be recoverable from disk until it's
+  overwritten.
+
+## License
+
+[BSD 3-Clause](LICENSE)

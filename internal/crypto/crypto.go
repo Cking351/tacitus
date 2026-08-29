@@ -35,8 +35,7 @@ func EncryptSymmetric(r io.Reader, w io.Writer, passphrase string, useArmor bool
 		plaintextWriter.Close()
 		return err
 	}
-	// Close, don't defer: these writers flush the final packets, and a dropped
-	// close error means a silently truncated ciphertext.
+	
 	if err := plaintextWriter.Close(); err != nil {
 		return err
 	}

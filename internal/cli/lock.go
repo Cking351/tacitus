@@ -5,18 +5,21 @@ import (
 	"fmt"
 	"os"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/spf13/cobra"
 
 	"github.com/Cking351/tacitus/internal/crypto"
 	"github.com/Cking351/tacitus/internal/helper"
+	"github.com/Cking351/tacitus/internal/keystore"
 )
 
 func lockCmd() *cobra.Command {
 	var deleteOriginal bool
+	var force bool
 	var outputPath string
 	var passphrase string
 	var useArmor bool
-	var force bool
+	var useKey bool
 	cmd := &cobra.Command{
 		Use:   "lock <file>",
 		Short: "Encrypt a file",
@@ -37,9 +40,17 @@ func lockCmd() *cobra.Command {
 			}
 			defer inFile.Close()
 
-			// Prompt before creating the output file so a mistyped passphrase
-			// leaves nothing behind.
-			if passphrase == "" {
+			var recipient *openpgp.Entity
+			if useKey {
+				store, err := keystore.DefaultStore()
+				if err != nil {
+					return err
+				}
+				recipient, err = store.LoadPublic()
+				if err != nil {
+					return err
+				}
+			} else if passphrase == "" {
 				passphrase, err = helper.ReadPassphrase("Passphrase: ")
 				if err != nil {
 					return err
@@ -53,18 +64,23 @@ func lockCmd() *cobra.Command {
 				}
 			}
 
-			outFile, existed, err := createOutput(outPath, force)
+			outFile, err := createOutput(outPath, force)
 			if err != nil {
 				return err
 			}
 			defer outFile.Close()
 
-			if err := crypto.EncryptSymmetric(inFile, outFile, passphrase, useArmor); err != nil {
-				cleanupOutput(outFile, outPath, existed)
+			if useKey {
+				if err := crypto.EncryptPublic(inFile, outFile, recipient, useArmor); err != nil {
+					cleanupOutput(outFile, outPath)
+					return fmt.Errorf("encrypting: %w", err)
+				}
+			} else if err := crypto.EncryptSymmetric(inFile, outFile, passphrase, useArmor); err != nil {
+				cleanupOutput(outFile, outPath)
 				return fmt.Errorf("encrypting: %w", err)
 			}
 			if err := outFile.Close(); err != nil {
-				cleanupOutput(outFile, outPath, existed)
+				cleanupOutput(outFile, outPath)
 				return fmt.Errorf("writing %s: %w", outPath, err)
 			}
 
@@ -83,9 +99,11 @@ func lockCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "output file path (default: <file>.tct)")
 	cmd.Flags().BoolVarP(&deleteOriginal, "delete", "d", false, "delete the original file after successful encryption")
+	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite the output file if it already exists")
 	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for encryption (THIS IS INSECURE)")
 	cmd.Flags().BoolVarP(&useArmor, "armor", "a", false, "Use PGP armor")
-	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite the output file if it already exists")
+	cmd.Flags().BoolVarP(&useKey, "key", "k", false, "encrypt with your personal key")
+	cmd.MarkFlagsMutuallyExclusive("key", "password")
 
 	return cmd
 }

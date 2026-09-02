@@ -6,17 +6,20 @@ import (
 	"os"
 	"strings"
 
+	"github.com/ProtonMail/go-crypto/openpgp"
 	"github.com/spf13/cobra"
 
 	"github.com/Cking351/tacitus/internal/crypto"
 	"github.com/Cking351/tacitus/internal/helper"
+	"github.com/Cking351/tacitus/internal/keystore"
 )
 
 func unlockCmd() *cobra.Command {
 	var deleteOriginal bool
+	var force bool
 	var outputPath string
 	var passphrase string
-	var force bool
+	var useKey bool
 	cmd := &cobra.Command{
 		Use:   "unlock <file>",
 		Short: "Decrypt a file",
@@ -40,25 +43,40 @@ func unlockCmd() *cobra.Command {
 			}
 			defer inFile.Close()
 
-			if passphrase == "" {
+			var identity *openpgp.Entity
+			if useKey {
+				store, err := keystore.DefaultStore()
+				if err != nil {
+					return err
+				}
+				identity, err = store.LoadPrivate()
+				if err != nil {
+					return err
+				}
+			} else if passphrase == "" {
 				passphrase, err = helper.ReadPassphrase("Passphrase: ")
 				if err != nil {
 					return err
 				}
 			}
 
-			outFile, existed, err := createOutput(outPath, force)
+			outFile, err := createOutput(outPath, force)
 			if err != nil {
 				return err
 			}
 			defer outFile.Close()
 
-			if err := crypto.DecryptSymmetric(inFile, outFile, passphrase); err != nil {
-				cleanupOutput(outFile, outPath, existed)
+			if useKey {
+				if err := crypto.DecryptPrivate(inFile, outFile, identity); err != nil {
+					cleanupOutput(outFile, outPath)
+					return fmt.Errorf("decrypting: %w", err)
+				}
+			} else if err := crypto.DecryptSymmetric(inFile, outFile, passphrase); err != nil {
+				cleanupOutput(outFile, outPath)
 				return fmt.Errorf("decrypting: %w", err)
 			}
 			if err := outFile.Close(); err != nil {
-				cleanupOutput(outFile, outPath, existed)
+				cleanupOutput(outFile, outPath)
 				return fmt.Errorf("writing %s: %w", outPath, err)
 			}
 
@@ -77,8 +95,10 @@ func unlockCmd() *cobra.Command {
 
 	cmd.Flags().StringVarP(&outputPath, "output", "o", "", "output file path (default: strip .tct suffix)")
 	cmd.Flags().BoolVarP(&deleteOriginal, "delete", "d", false, "delete the encrypted file after successful decryption")
-	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for decryption (THIS IS INSECURE)")
 	cmd.Flags().BoolVarP(&force, "force", "f", false, "overwrite the output file if it already exists")
+	cmd.Flags().StringVarP(&passphrase, "password", "p", "", "password for decryption (THIS IS INSECURE)")
+	cmd.Flags().BoolVarP(&useKey, "key", "k", false, "decrypt with your personal key")
+	cmd.MarkFlagsMutuallyExclusive("key", "password")
 
 	return cmd
 }

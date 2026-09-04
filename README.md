@@ -95,9 +95,20 @@ tacitus unlock photos.zip.tct --key
 
 Key mode never prompts for a file passphrase. `--key` cannot be combined with
 `--password`. The private key is intentionally not passphrase-protected, so
-the operating system account and full-disk encryption protect it. Back it up
-securely: anyone with the private key can decrypt key-encrypted files, and
-losing it permanently loses access to them.
+the operating system account and full-disk encryption protect it.
+
+Back up the private key with:
+
+```
+tacitus export /path/to/backup-location
+```
+
+Pass `-f`/`--force` to overwrite an existing file at the destination.
+
+Store the export somewhere other than the same cloud storage it's meant to
+protect — otherwise losing access to that storage loses the key too. Anyone
+with the private key can decrypt key-encrypted files, and losing it
+permanently loses access to them, so keep the export secure as well.
 
 ## Security notes
 

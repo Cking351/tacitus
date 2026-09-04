@@ -19,6 +19,7 @@ func rootCmd() *cobra.Command {
 	root.AddCommand(lockCmd())
 	root.AddCommand(unlockCmd())
 	root.AddCommand(keygenCmd())
+	root.AddCommand(exportCmd())
 
 	return root
 }
